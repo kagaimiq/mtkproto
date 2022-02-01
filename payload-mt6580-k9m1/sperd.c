@@ -50,9 +50,13 @@ void ArmFiqHandler(void) {
 }
 
 
-
-
-
+/*
+ * From https://github.com/wtarreau/mhz
+ *
+ * Note that this doesnt calculate the clock frequency right when ran in this enviroment.
+ * Under Linux it calculates the correct frequency
+ * while there it is ~3 times lower! (1.3 GHz ==> ~426 MHz)
+ */
 
 #define microseconds() micros()
 #define rdtsc() 0
