@@ -1,0 +1,225 @@
+
+#define SWI2C_WAIT(o)	usleep(USLEEP_1SEC / (o)->sclFreq / 2)
+#define SWI2C_SCL_SET(o)	gpio_set_direction((o)->padSCL, true)
+#define SWI2C_SCL_CLR(o)	gpio_set_direction((o)->padSCL, false)
+#define SWI2C_SCL_GET(o)	gpio_get_level((o)->padSCL)
+#define SWI2C_SDA_SET(o)	gpio_set_direction((o)->padSDA, true)
+#define SWI2C_SDA_CLR(o)	gpio_set_direction((o)->padSDA, false)
+#define SWI2C_SDA_GET(o)	gpio_get_level((o)->padSDA)
+
+struct swi2c_obj {
+	int padSDA;
+	int padSCL;
+	int sclFreq;
+};
+
+void swi2c_setup(struct swi2c_obj *o) {
+	/* release pads */
+	gpio_set_direction(o->padSCL, false);
+	gpio_set_direction(o->padSDA, false);
+	/* set low level when output */
+	gpio_set_level(o->padSCL, false);
+	gpio_set_level(o->padSDA, false);
+	/* config to gpio mode */
+	gpio_iomux_cfg(o->padSCL, 0);
+	gpio_iomux_cfg(o->padSDA, 0);
+}
+
+void swi2c_start(struct swi2c_obj *o) {
+	SWI2C_SDA_SET(o);
+	SWI2C_WAIT(o);
+	SWI2C_SCL_SET(o);
+	SWI2C_WAIT(o);
+}
+
+void swi2c_stop(struct swi2c_obj *o) {
+	SWI2C_SCL_CLR(o);
+	SWI2C_WAIT(o);
+	SWI2C_SDA_CLR(o);
+	SWI2C_WAIT(o);
+}
+
+int swi2c_write(struct swi2c_obj *o, uint8_t data) {
+	for (uint8_t msk = 0x80; msk != 0x00; msk >>= 1) {
+		if (data & msk)	SWI2C_SDA_CLR(o);
+		else		SWI2C_SDA_SET(o);
+
+		SWI2C_SCL_CLR(o);
+		SWI2C_WAIT(o);
+		SWI2C_SCL_SET(o);
+		SWI2C_WAIT(o);
+	}
+
+	SWI2C_SDA_CLR(o);
+
+	SWI2C_SCL_CLR(o);
+	SWI2C_WAIT(o);
+	int ack = SWI2C_SDA_GET(o) ? 1 : 0;
+	SWI2C_SCL_SET(o);
+	SWI2C_WAIT(o);
+
+	return ack;
+}
+
+int swi2c_read(struct swi2c_obj *o, uint8_t *data, int nak) {
+	*data = 0x00;
+
+	SWI2C_SDA_CLR(o);
+
+	for (uint8_t msk = 0x80; msk != 0x00; msk >>= 1) {
+		SWI2C_SCL_CLR(o);
+		SWI2C_WAIT(o);
+
+		if (SWI2C_SDA_GET(o)) *data |= msk;
+
+		SWI2C_SCL_SET(o);
+		SWI2C_WAIT(o);
+	}
+
+	if (!nak) SWI2C_SDA_SET(o);
+
+	SWI2C_SCL_CLR(o);
+	SWI2C_WAIT(o);
+	SWI2C_SCL_SET(o);
+	SWI2C_WAIT(o);
+
+	return 0;
+}
+
+
+int swi2c_tranR(struct swi2c_obj *o, uint8_t saddr, uint8_t *addrp, int addrl, uint8_t *datap, int datal) {
+	int ret;
+
+	swi2c_start(o);
+
+	// send SLA+W
+	if ((ret = swi2c_write(o, (saddr << 1) | 0))) goto Exit;
+
+	// send address bytes
+	while (addrl--) {
+		if ((ret = swi2c_write(o, *addrp++))) goto Exit;
+	}
+
+	// restart
+	swi2c_stop(o);
+	swi2c_start(o);
+
+	// send SLA+R
+	if ((ret = swi2c_write(o, (saddr << 1) | 1))) goto Exit;
+
+	// receive data bytes
+	while (datal--) {
+		if ((ret = swi2c_read(o, datap++, datal<=0))) goto Exit;
+	}
+
+Exit:
+	// stop
+	swi2c_stop(o);
+	return ret;
+}
+
+int swi2c_tranW(struct swi2c_obj *o, uint8_t saddr, uint8_t *addrp, int addrl, const uint8_t *datap, int datal) {
+	int ret;
+
+	swi2c_start(o);
+
+	// send SLA+W
+	if ((ret = swi2c_write(o, (saddr << 1) | 0))) goto Exit;
+
+	// send address bytes
+	while (addrl--) {
+		if ((ret = swi2c_write(o, *addrp++))) goto Exit;
+	}
+
+	// send data bytes
+	while (datal--) {
+		if ((ret = swi2c_write(o, *datap++))) goto Exit;
+	}
+
+Exit:
+	// stop
+	swi2c_stop(o);
+	return ret;
+}
+
+void swi2c_detect(struct swi2c_obj *o) {
+	xputs("     0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f \n");
+	for (int ah = 0; ah < 8; ah++) {
+		xprintf("%x0: ", ah);
+
+		for (int al = 0; al < 16; al++) {
+			uint8_t addr = (ah << 4) | al;
+
+			if (addr >= 0x03 && addr < 0x78) {
+				swi2c_start(o);
+				int r = swi2c_write(o, addr << 1);
+				swi2c_stop(o);
+
+				if (r)
+					xputs("-- ");
+				else
+					xprintf("%02x ", addr);
+			} else {
+				xputs("   ");
+			}
+		}
+
+		xputs("\n");
+	}
+	xputs("\n");
+}
+
+struct swi2c_obj theI2C0 = {
+	.padSDA = 82,
+	.padSCL = 83,
+	.sclFreq = 1000,
+};
+
+struct swi2c_obj theI2C1 = {
+	.padSDA = 81,
+	.padSCL = 84,
+	.sclFreq = 1000,
+};
+
+struct swi2c_obj theI2C2 = {
+	.padSDA = 104,
+	.padSCL = 103,
+	.sclFreq = 1000,
+};
+
+struct swi2c_obj theI2C3 = {
+	.padSDA = 51,
+	.padSCL = 50,
+	.sclFreq = 1000,
+};
+
+struct swi2c_obj theI2C4 = {
+	.padSDA = 106,
+	.padSCL = 105,
+	.sclFreq = 1000,
+};
+
+struct swi2c_obj theI2C5 = {
+	.padSDA = 49,
+	.padSCL = 48,
+	.sclFreq = 1000,
+};
+
+struct swi2c_obj theI2C6 = {
+	.padSDA = 162,
+	.padSCL = 161,
+	.sclFreq = 1000,
+};
+
+
+
+------------------
+
+
+swi2c_detect(&theI2C0);
+	swi2c_detect(&theI2C1);
+	swi2c_detect(&theI2C2);
+	swi2c_detect(&theI2C3);
+	swi2c_detect(&theI2C4);
+	swi2c_detect(&theI2C5);
+	swi2c_detect(&theI2C6);
