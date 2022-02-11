@@ -223,6 +223,20 @@ int main(int argc, char **argv) {
 		return 2;
 	}
 	
+	/* check for already open connection */ {
+		uint8_t tmp;
+		
+		/* check for open connection of bootrom */
+		if (!mtk_pl_sendByte(0xff) && !mtk_pl_recvByte(&tmp)) {
+			if (tmp == 0x05) goto SkipHandshake;
+		}
+		
+		/* check for open connection of preloader/bootrom */
+		if (!mtk_pl_sendByte(0xfe) && !mtk_pl_recvByte(&tmp)) {
+			if (tmp == 0x01 || tmp == 0xfe) goto SkipHandshake;
+		}
+	}
+	
 	for (int try = 10; try >= 0; try--) {
 		if (try == 0) {
 			puts("send token fail...");
@@ -241,6 +255,7 @@ int main(int argc, char **argv) {
 		break;
 	}
 	
+SkipHandshake:
 	puts("---------- Get some infos! ------------");
 	if (getSomeInfos()) {
 		printf("**********couldn't get some infos!***********");
