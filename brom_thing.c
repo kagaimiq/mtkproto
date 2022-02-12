@@ -223,20 +223,6 @@ int main(int argc, char **argv) {
 		return 2;
 	}
 	
-	/* check for already open connection */ {
-		uint8_t tmp;
-		
-		/* check for open connection of bootrom */
-		if (!mtk_pl_sendByte(0xff) && !mtk_pl_recvByte(&tmp)) {
-			if (tmp == 0x05) goto SkipHandshake;
-		}
-		
-		/* check for open connection of preloader/bootrom */
-		if (!mtk_pl_sendByte(0xfe) && !mtk_pl_recvByte(&tmp)) {
-			if (tmp == 0x01 || tmp == 0xfe) goto SkipHandshake;
-		}
-	}
-	
 	for (int try = 10; try >= 0; try--) {
 		if (try == 0) {
 			puts("send token fail...");
@@ -247,15 +233,28 @@ int main(int argc, char **argv) {
 		uint8_t tmp;
 		
 		mtk_pl_flush();
-		if (mtk_pl_sendByte(0xa0) || mtk_pl_recvByte(&tmp) || (tmp != 0x5f)) continue;
-		if (mtk_pl_sendByte(0x0a) || mtk_pl_recvByte(&tmp) || (tmp != 0xf5)) continue;
-		if (mtk_pl_sendByte(0x50) || mtk_pl_recvByte(&tmp) || (tmp != 0xaf)) continue;
-		if (mtk_pl_sendByte(0x05) || mtk_pl_recvByte(&tmp) || (tmp != 0xfa)) continue;
 		
-		break;
+		int fail = 0;
+		if (mtk_pl_sendByte(0xa0) || mtk_pl_recvByte(&tmp) || (tmp != 0x5f)) fail++;
+		if (mtk_pl_sendByte(0x0a) || mtk_pl_recvByte(&tmp) || (tmp != 0xf5)) fail++;
+		if (mtk_pl_sendByte(0x50) || mtk_pl_recvByte(&tmp) || (tmp != 0xaf)) fail++;
+		if (mtk_pl_sendByte(0x05) || mtk_pl_recvByte(&tmp) || (tmp != 0xfa)) fail++;
+		
+		if (fail) {
+			/* check for open connection of bootrom */
+			if (!mtk_pl_sendByte(0xff) && !mtk_pl_recvByte(&tmp)) {
+				if (tmp == 0x05) break;
+			}
+
+			/* check for open connection of preloader/bootrom */
+			if (!mtk_pl_sendByte(0xfe) && !mtk_pl_recvByte(&tmp)) {
+				if (tmp == 0x01 || tmp == 0xfe) break;
+			}
+		} else {
+			break;
+		}
 	}
-	
-SkipHandshake:
+
 	puts("---------- Get some infos! ------------");
 	if (getSomeInfos()) {
 		printf("**********couldn't get some infos!***********");
