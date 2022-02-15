@@ -241,6 +241,8 @@ int main(int argc, char **argv) {
 		if (mtk_pl_sendByte(0x05) || mtk_pl_recvByte(&tmp) || (tmp != 0xfa)) fail++;
 		
 		if (fail) {
+			mtk_pl_flush();
+			
 			/* check for open connection of bootrom */
 			if (!mtk_pl_sendByte(0xff) && !mtk_pl_recvByte(&tmp)) {
 				if (tmp == 0x05) break;
