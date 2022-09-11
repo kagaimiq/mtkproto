@@ -1,9 +1,15 @@
 # mtkproto
 Tool to upload code binaries into Mediatek SoCs via the BootROM/Preloader protocol
 
-This tool is prooven to work with MT6580, MT6735 and MT6762V.
+Right now it has no sense IMO, what i'm looking for is a tool that also speaks the
+Download Agent protocol since you know, initing the DRAM is *hard*.
+And the Preloader might not always have the USBDL mode, e.g my Xiaomi Redmi 6A phone does not.
+Probably it's related to the fact that there is *restrictions* all over the place...
 
-Note that it does not bypass the DA/serial link auth! (yet)
+----
+
+Note that it does not bypass the DA/serial link auth!
+[Look here instead](https://github.com/MTK-bypass)
 
 ## Usage
 The usage is as follows: `mtkproto <mtk tty> [<payload addr> <payload file>]`,
