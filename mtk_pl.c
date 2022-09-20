@@ -31,9 +31,9 @@ int mtk_pl_connect(char *path) {
 			break;
 		}
 	}
-	
+
 	struct termios newtio = {
-		.c_cflag = B19200 | CS8 | CLOCAL | CREAD,
+		.c_cflag = B115200 | CS8 | CLOCAL | CREAD,
 		.c_iflag = IGNPAR,
 		.c_oflag = 0,
 		.c_lflag = 0,
@@ -45,7 +45,7 @@ int mtk_pl_connect(char *path) {
 		close(mtk_pl_fd);
 		return MTK_PL_IO_ERR;
 	}
-	
+
 	return MTK_PL_OK;
 }
 
@@ -56,75 +56,6 @@ void mtk_pl_disconnect(void) {
 	}
 }
 
-int mtk_pl_term(void) {
-	if (mtk_pl_fd > 0) {
-	/* code borrowed from BusyBox microcom */
-		int rc = MTK_PL_OK;
-		struct termios tio0, tio1;
-		
-		if (isatty(STDIN_FILENO)) {
-			tcgetattr(STDIN_FILENO, &tio0);
-			tio1 = tio0;
-			
-			tio1.c_lflag &= ~(ICANON | ECHO | ECHONL);
-			tio1.c_lflag &= ~(ISIG);
-			tio1.c_cc[VMIN] = 5;
-			tio1.c_cc[VTIME] = 0;
-			tio1.c_iflag &= ~(IXON | ICRNL);
-			tio1.c_oflag &= ~(ONLCR);
-			tio1.c_iflag &= ~(IXOFF|IXON|IXANY|BRKINT|INLCR|IUCLC|IMAXBEL);
-			
-			tcsetattr(STDIN_FILENO, TCSAFLUSH, &tio1);
-		}
-		
-		
-		struct pollfd pfd[2] = {
-			{
-				.fd = mtk_pl_fd,
-				.events = POLLIN
-			},
-			{
-				.fd = STDIN_FILENO,
-				.events = POLLIN
-			}
-		};
-		
-		while (rc == MTK_PL_OK && poll(pfd, 2, -1) > 0) {
-			if (pfd[1].revents) {
-				char c;
-				if (read(STDIN_FILENO, &c, 1) < 1) {
-				//maybe do something smart next time ...
-					rc = MTK_PL_IO_ERR;
-					break;
-				} else {
-					//Ctrl+X
-					if (c == 24)
-						break;
-					
-					int x = write(mtk_pl_fd, &c, 1);
-				}
-			}
-			
-			if (pfd[0].revents) {
-				char tmpbuf[1024];
-				int rlen = read(mtk_pl_fd, tmpbuf, sizeof tmpbuf);
-				if (rlen > 0) {
-					int x = write(STDOUT_FILENO, tmpbuf, rlen);
-				} else {
-					rc = MTK_PL_IO_ERR;
-					break;
-				}
-			}
-		}
-
-		if (isatty(STDIN_FILENO))
-			tcsetattr(STDIN_FILENO, TCSAFLUSH, &tio0);
-		
-mtkExit:
-		return rc;
-	}
-	return MTK_PL_NOT_CONN;
-}
 
 void mtk_pl_flush(void) {
 	if (mtk_pl_fd > 0) {
@@ -216,7 +147,7 @@ int mtk_pl_recvBytes(uint8_t *ptr, int len) {
 	if (mtk_pl_fd > 0) {
 		//if (read(mtk_pl_fd, ptr, len) < len)
 		//	return MTK_PL_IO_ERR;
-		
+
 		/* the data may be chunked so read it in a loop */
 		int cnt = 0;
 		while (cnt < len) {
@@ -224,7 +155,7 @@ int mtk_pl_recvBytes(uint8_t *ptr, int len) {
 			if (n <= 0) return MTK_PL_IO_ERR;
 			cnt += n;
 		}
-		
+
 		return MTK_PL_OK;
 	}
 	return MTK_PL_NOT_CONN;
@@ -235,32 +166,32 @@ int mtk_pl_recvBytes(uint8_t *ptr, int len) {
 int mtk_pl_sendByteChk(uint8_t val) {
 	uint8_t tmp;
 	int rc;
-	
+
 	if ((rc = mtk_pl_sendByte(val))) return rc;
 	if ((rc = mtk_pl_recvByte(&tmp))) return rc;
 	if (tmp != val) return MTK_PL_COMM_ERR;
-	
+
 	return MTK_PL_OK;
 }
 
 int mtk_pl_sendWordChk(uint16_t val) {
 	uint16_t tmp;
 	int rc;
-	
+
 	if ((rc = mtk_pl_sendWord(val))) return rc;
 	if ((rc = mtk_pl_recvWord(&tmp))) return rc;
 	if (tmp != val) return MTK_PL_COMM_ERR;
-	
+
 	return MTK_PL_OK;
 }
 
 int mtk_pl_sendDWordChk(uint32_t val) {
 	uint32_t tmp;
 	int rc;
-	
+
 	if ((rc = mtk_pl_sendDWord(val))) return rc;
 	if ((rc = mtk_pl_recvDWord(&tmp))) return rc;
 	if (tmp != val) return MTK_PL_COMM_ERR;
-	
+
 	return MTK_PL_OK;
 }

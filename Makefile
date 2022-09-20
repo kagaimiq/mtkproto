@@ -1,8 +1,8 @@
-TARGET=mtkproto
-OBJS=brom_thing.o mtk_pl.o
+TARGET = mtkproto
+OBJS   = brom_thing.o mtk_pl.o
 
-CFLAGS=-Werror
-LDFLAGS=
+CFLAGS  = -Werror
+LDFLAGS =
 
 all: $(TARGET)
 
@@ -11,4 +11,4 @@ clean:
 	rm -f $(TARGET)
 
 $(TARGET): $(OBJS)
-	$(CC) $(OBJS) $(LDFLAGS) -o "$@"
+	$(CC) $(OBJS) $(LDFLAGS) -o $@
