@@ -4,6 +4,8 @@ A tool for executing arbitrary code on MediaTek SoCs through the USBDL (BROM/Pre
 
 For bypassing the <del>restrictions</del>, look [there](https://github.com/MTK-bypass)
 
+For doing something else, maybe look at [mtkclient](https://github.com/bkerler/mtkclient), maybe?
+
 ## Note
 
 ### Download agent
