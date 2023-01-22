@@ -66,4 +66,4 @@ Run something from DRAM via Download Agent:
 
 --------
 
-![mtklinux](konvince.png)
+![mtklinux](konivnce.png)
