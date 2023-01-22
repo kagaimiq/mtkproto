@@ -1,23 +1,29 @@
 # mtkproto
 
-A tool for executing arbitrary code on MediaTek SoCs through the USBDL (BROM/Preloader) and Download Agent protocols.
+A tool that just loads and runs code on the MediaTek SoCs. Nothing more...
+If you want to do something else, then take look at [mtkclient](https://github.com/bkerler/mtkclient) or similar.
 
-For bypassing the <del>restrictions</del>, look [there](https://github.com/MTK-bypass)
+It doesn't bypass all the obstacles like the DAA/SLA or secure boot,
+so if you have such a device, then first look [there](https://github.com/MTK-bypass),
+or do it via mtkclient (run `./mtk payload`), or look at something else.
 
-For doing something else, maybe look at [mtkclient](https://github.com/bkerler/mtkclient), maybe?
+Right now it's in a state where it's better not to exist i guess...
 
-## Note
+First of all, it's written in C so it's quite a mess but most importantly,
+only the POSIX serial API is supported and thus it works only on Linux, etc.
+(being too lazy to copy the Win32 code from my MStar tool??)
 
-### Download agent
+Second, it is quite hardcoded, i mean, the part where the Download Agent's first stage runs.
+I've just copied the DRAM init data from the preloader of Xiaomi Redmi 6A (preloader_cactus.bin),
+and so there's quite few supported eMCP's..
 
-The Download Agent protocol support right now is limited to the MT6765's DA
-(probably will work with any other DA that speaks the *same* protocol - e.g. MT6580's DA speaks completely different protocol)
+Also to be noted is the fact that it supports *only* the new DA protocol (mtkclient calls it "XFlash"),
+as the MT6765 DA uses this new protocol, while e.g. MT6580's DA uses older protocol.
 
-And the DRAM init data is hardcoded to the ones that were in the Preloader from Xiaomi Redmi 6A.
+The Reason is simple - MT6580 doesn't usually get locked down with all the protections and so its preloader
+*does* appear as an "MT65xx Preloader" device on USB, which allows us to access DRAM without using any Download Agents.
 
-The included `mtk_DA6765_nohashcheck.bin` has the second DA's stage hash checking bypassed,
-and thus the DA from e.g. `MTK_AllInOne_DA.bin` won't work as it will refuse to execute
-anything but its second stage.
+Okay, enough ramblings and excuses, let's get to the `./mtkproto` anyway...
 
 ## Usage
 
@@ -29,11 +35,24 @@ anything but its second stage.
 - `<payload 2 addr>` - Address where the second payload is loaded
 - `<payload 2 file>` - File that will be loaded as the second payload
 
-The first payload is loaded on the USBDL (BROM/Preloader) stage,
-while the second one is loaded on the Download Agent stage, that is provided by the first payload.
+First thing it does after starting is it waits for the device on the port "`<mtk tty>`" indefinetlyuntil it appears,
+and it is able to open it.
+Just hold a volume button (pull down KPCOL0 to GND) then plug in into USB, or wait for the preloader device, etc.
 
-The USBDL stage either *does* have DRAM (when on Preloader) or *does not* have DRAM (when on BROM),
-so the Download Agent is used to init the DRAM when we are running off BROM, while on the Preloader it is essentialy a no-op.
+If no additional parameters specified (i.e. only the `<mtk tty>` is specified),
+it just prints out some information it gets over USBDL (bootrom or preloader).
+
+The first payload is loaded in the USBDL mode via commands `SEND_DA` and `JUMP_DA`.
+
+Then the second payload is loaded in the DA "xflash" protocol, first sending out DRAM configs and other stuff first.
+
+It's important to know that the DA's first stage (that we are executing now) expects to have its second stage
+(that we are supposed to load) loaded, and so it checks the hash of what we have just loaded ("security check"),
+and refuses to execute it if the hashes are different from what was hardcoded into stage1 binary itself.
+
+And so i have included the "mtk_DA6765_nohashchecks.bin" file until i find a better solution.
+What i've done is i ripped it off the "MTK_AllInOne_DA" and 'bypassed' the hash checks altogether.
+Load address is 0x200000.
 
 ### Example
 
@@ -45,3 +64,6 @@ Run something from DRAM via Download Agent:
 
 `./mtkproto /dev/ttyACM0 0x200000 mtk_DA6765_nohashcheck.bin 0x48000000 linux.bin`
 
+--------
+
+![mtklinux](konvince.png)

@@ -1,5 +1,2 @@
 mtkproto
 *.o
-
-BootRomComm/
-payload*
