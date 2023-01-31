@@ -1,7 +1,11 @@
-# mtkproto
+# mtkproto / mtkrunner
 
 A tool that just loads and runs code on the MediaTek SoCs. Nothing more...
 If you want to do something else, then take look at [mtkclient](https://github.com/bkerler/mtkclient) or similar.
+
+To better understand why i ever need this, check out commit [c55c440dff](https://github.com/kagaimiq/mtkproto/tree/c55c440dff2c6d869d0aed4308d4068dc32b0630), and especially the "payload-mt6580-LinuxBoot" directory.
+
+-------------------------------------------------------------------------------------------------------------
 
 It doesn't bypass all the obstacles like the DAA/SLA or secure boot,
 so if you have such a device, then first look [there](https://github.com/MTK-bypass),
@@ -35,7 +39,7 @@ Okay, enough ramblings and excuses, let's get to the `./mtkproto` anyway...
 - `<payload 2 addr>` - Address where the second payload is loaded
 - `<payload 2 file>` - File that will be loaded as the second payload
 
-First thing it does after starting is it waits for the device on the port "`<mtk tty>`" indefinetlyuntil it appears,
+First thing it does after starting is it waits for the device on the port "`<mtk tty>`" indefinetly until it appears,
 and it is able to open it.
 Just hold a volume button (pull down KPCOL0 to GND) then plug in into USB, or wait for the preloader device, etc.
 
@@ -67,3 +71,5 @@ Run something from DRAM via Download Agent:
 --------
 
 ![mtklinux](konivnce.png)
+
+MTK Linux?? plays a module (yak-yak-yak.mod) and shows a neofetch...
