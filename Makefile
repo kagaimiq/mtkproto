@@ -1,5 +1,5 @@
 TARGET = mtkproto
-OBJS   = brom_thing.o mtk_pl.o
+OBJS   = mtkrunner.o mtk_pl.o mtk_dev.o
 
 CFLAGS  = -Werror
 LDFLAGS =

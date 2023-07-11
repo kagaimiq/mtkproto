@@ -1,2 +1,4 @@
 mtkproto
 *.o
+
+builddir/
