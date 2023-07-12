@@ -1,33 +1,29 @@
 # mtkproto / mtkrunner
 
-A tool that just loads and runs code on the MediaTek SoCs. Nothing more...
+A tool solely made to upload and run code into the Mediatek SoCs,
+with the neccessary facilities to do it more-or-less easily. (or at least it should be like that, right now it really isn't)
+
 If you want to do something else, then take look at [mtkclient](https://github.com/bkerler/mtkclient) or similar.
 
-To better understand why i ever need this, check out commit [c55c440dff](https://github.com/kagaimiq/mtkproto/tree/c55c440dff2c6d869d0aed4308d4068dc32b0630), and especially the "payload-mt6580-LinuxBoot" directory.
+To better understand why i ever need this, check out the mess on commit [c55c440dff](https://github.com/kagaimiq/mtkproto/tree/c55c440dff2c6d869d0aed4308d4068dc32b0630),
+and especially the "payload-mt6580-LinuxBoot" directory, which is a rather simple ARM Linux boot wrapper with mediatek bits bolted on top.
+(it [bleeps](https://github.com/kagaimiq/mtkproto/blob/c55c440dff2c6d869d0aed4308d4068dc32b0630/payload-mt6580-LinuxBoot/sperd.c#L675) into your headphones!)
 
 -------------------------------------------------------------------------------------------------------------
 
-It doesn't bypass all the obstacles like the DAA/SLA or secure boot,
-so if you have such a device, then first look [there](https://github.com/MTK-bypass),
-or do it via mtkclient (run `./mtk payload`), or look at something else.
+It doesn't bypass all the obstacles like DAA or SLA, and so if your device is locked out, or there is any suspicion,
+then use something else to bypass it, for example with mtkclient you can run `./mtk payload` and it should bypass it.
 
-Right now it's in a state where it's better not to exist i guess...
+Currently it's still has some hardcoded bits (that is, the EMI init data for DA), which should be handed correctly.
 
-First of all, it's written in C so it's quite a mess but most importantly,
-only the POSIX serial API is supported and thus it works only on Linux, etc.
-(being too lazy to copy the Win32 code from my MStar tool??)
+Also the Download Agent variant it supports is the "xflash" one, which is used by SoCs like MT6765,
+while the option for the older DA variant that is used by SoCs like MT6580 is not currently available.
 
-Second, it is quite hardcoded, i mean, the part where the Download Agent's first stage runs.
-I've just copied the DRAM init data from the preloader of Xiaomi Redmi 6A (preloader_cactus.bin),
-and so there's quite few supported eMCP's..
-
-Also to be noted is the fact that it supports *only* the new DA protocol (mtkclient calls it "XFlash"),
-as the MT6765 DA uses this new protocol, while e.g. MT6580's DA uses older protocol.
-
-The Reason is simple - MT6580 doesn't usually get locked down with all the protections and so its preloader
-*does* appear as an "MT65xx Preloader" device on USB, which allows us to access DRAM without using any Download Agents.
-
-Okay, enough ramblings and excuses, let's get to the `./mtkproto` anyway...
+The reason is really because devices with e.g. MT6580 or MT6735 doesn't really have any problem with the preloader,
+as it can appear as an "MT65xx Preloader" device, so I can just load to DRAM directly without any download agents,
+while in case of MT6762V/CN (yes, it's *NOT* MT6761, it's a cut-down MT6765!) in my Xiaomi Redmi 6A phone,
+it had a secure boot option enabled, and as a consequence, the Preloader also lacked its USB device, too.
+So the only option was to use the DA, as the DAA/SLA protections in BROM can be easily bypassed.
 
 ## Usage
 
@@ -43,33 +39,32 @@ First thing it does after starting is it waits for the device on the port "`<mtk
 and it is able to open it.
 Just hold a volume button (pull down KPCOL0 to GND) then plug in into USB, or wait for the preloader device, etc.
 
-If no additional parameters specified (i.e. only the `<mtk tty>` is specified),
-it just prints out some information it gets over USBDL (bootrom or preloader).
+If you specified address 0x58881688, then the corresponding file will be intepreted as an Preloader/LK image,
+from which the correct address and size is obtained, which might come handy. (although the way to specify that might change!)
 
-The first payload is loaded in the USBDL mode via commands `SEND_DA` and `JUMP_DA`.
+If no additional parameters specified (i.e. only the `<mtk tty>` is specified), it just prints out some information stuff obtained from BROM/Preloader mode.
 
-Then the second payload is loaded in the DA "xflash" protocol, first sending out DRAM configs and other stuff first.
+The first payload is loaded in the BROM/Preloader mode via commands `SEND_DA` and `JUMP_DA`.
+
+Then the second payload is loaded in the DA "xflash" protocol, first sending out DRAM configs (hardcoded) and other stuff first.
 
 It's important to know that the DA's first stage (that we are executing now) expects to have its second stage
-(that we are supposed to load) loaded, and so it checks the hash of what we have just loaded ("security check"),
-and refuses to execute it if the hashes are different from what was hardcoded into stage1 binary itself.
+(that we are supposed to load) loaded, and so it checks the hash (SHA1 or SHA256) of what we have just loaded ("security check"),
+and refuses to execute it if the hashes are different from what was hardcoded into DA1 binary itself.
 
-And so i have included the "mtk_DA6765_nohashchecks.bin" file until i find a better solution.
-What i've done is i ripped it off the "MTK_AllInOne_DA" and 'bypassed' the hash checks altogether.
-Load address is 0x200000.
+Currently the option is to manually patch out this check, or calculate the correct hash into the DA itself. (whichever you prefer better)
 
 ### Example
 
-Run something from SRAM (but also can be used for DRAM when running off Preloader):
+Run via BROM or Preloader:
 
-`./mtkproto /dev/ttyACM0 0x200000 payload.bin`
+* in SRAM: `./mtkproto /dev/ttyACM0 0x200000 payload.bin`
+* in DRAM (in preloader): `./mtkproto /dev/ttyACM0 0x80001000 MT6580_LinuxCardReader.bin`
 
 Run something from DRAM via Download Agent:
 
-`./mtkproto /dev/ttyACM0 0x200000 mtk_DA6765_nohashcheck.bin 0x48000000 linux.bin`
+* `./mtkproto /dev/ttyACM0 0x200000 mtk_DA6765_nohashcheck.bin 0x48000000 linux.bin`
 
---------
+The same but with an LK image instead:
 
-![mtklinux](konivnce.png)
-
-MTK Linux?? plays a module (yak-yak-yak.mod) and shows a neofetch...
+* `./mtkproto /dev/ttyACM0 0x58881688 X2/mtk_DA6765_nohashcheck.img 0x58881688 ../LinuxBootWrap/mt6762m/LinuxImage.img`
